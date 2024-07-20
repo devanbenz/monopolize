@@ -10,3 +10,4 @@ clap = { version = "4.5.9", features = ["derive"] }
 clap_derive = "4.5.8"
 thiserror = "1.0.63"
 parquet = "52.1.0"
+arrow = "52.1.0"

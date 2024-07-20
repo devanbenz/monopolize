@@ -18,16 +18,23 @@ pub struct ExtractedSchema {
 
 
 impl SchemaExtractor {
-    pub fn new(path: &str) -> Self {
+    pub fn new() -> Self {
+        let schema: Vec<ExtractedSchema> = vec![];
+
+        Self {
+            schema
+        }
+    }
+
+    pub fn add_schema_to_extractor(&mut self, path: &str) -> &mut SchemaExtractor {
         let path = Path::new(path);
-        let mut schema: Vec<ExtractedSchema> = vec![];
 
         if let Ok(file) = File::open(path) {
             let reader = SerializedFileReader::new(file).unwrap();
             let parquet_metadata = reader.metadata().file_metadata();
 
             for val in parquet_metadata.schema().get_fields() {
-                schema.push(ExtractedSchema {
+                self.schema.push(ExtractedSchema {
                     name : val.name().parse().unwrap(),
                     physical_type: val.get_physical_type(),
                     converted_type: val.get_basic_info().converted_type()
@@ -35,9 +42,7 @@ impl SchemaExtractor {
             }
         }
 
-        Self {
-            schema
-        }
+        self
     }
 }
 
