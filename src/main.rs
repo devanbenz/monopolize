@@ -1,25 +1,19 @@
-use crate::errors::error::Error;
-use crate::input::cli::handle_input;
-use crate::schema::extractor::SchemaExtractor;
-use crate::schema::manager::ArrowSchemaManager;
-use crate::schema::unifier::SchemaUnifier;
+use crate::arrow_schema_unifier::ArrowSchemaUnifier;
+use crate::cli::handle_input;
+use crate::error::Error;
+use crate::file_manager::FileManager;
 
-mod input;
-mod errors;
-mod schema;
+mod arrow_schema_unifier;
+mod cli;
+mod error;
 mod file_manager;
 
 fn main() -> Result<(), Error>{
-    let mut extractor = SchemaExtractor::new();
 
-    let files = handle_input()?;
-    for file in files {
-        extractor.add_schema_to_extractor(&file);
-    }
-
-    let unified_schema = SchemaUnifier::new(extractor);
-    let unified_schema = ArrowSchemaManager::new(unified_schema); 
-    println!("{:#?}", unified_schema);
+    let (files, output) = handle_input()?;
+    let arrow_unified_schema = ArrowSchemaUnifier::try_from_files(files);
+    let file_manager = FileManager::new(arrow_unified_schema);
+    file_manager.read_to_arrow_batches(output);
 
     Ok(())
 }

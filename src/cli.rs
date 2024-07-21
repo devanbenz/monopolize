@@ -1,7 +1,7 @@
 use std::path::Path;
 use clap::Parser;
 use clap_derive::Parser as DParser;
-use crate::errors::error::Error;
+use crate::error::Error;
 
 #[derive(DParser, Debug)]
 #[command(version, about, long_about = None)]
@@ -9,9 +9,13 @@ pub struct FileMergeArgs {
     // Files to merge
     #[arg(short, long, value_delimiter = ' ', num_args = 1..)]
     pub files: Vec<String>,
+
+    // Output file to merge to
+    #[arg(short, long, num_args = 1)]
+    pub output: String
 }
 
-pub fn handle_input() -> Result<Vec<String>, Error> {
+pub fn handle_input() -> Result<(Vec<String>, String), Error> {
     let mut files_to_merge = vec![];
     let file_args = FileMergeArgs::parse();
 
@@ -23,7 +27,7 @@ pub fn handle_input() -> Result<Vec<String>, Error> {
         }
     }
 
-    Ok(files_to_merge)
+    Ok((files_to_merge, file_args.output))
 }
 
 fn read_from_fs(file: &str) -> bool {
