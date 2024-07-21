@@ -1,12 +1,12 @@
-use crate::arrow_schema_unifier::ArrowSchemaUnifier;
 use crate::cli::handle_input;
 use crate::error::Error;
-use crate::file_manager::FileManager;
+use crate::merger::arrow_schema_unifier::ArrowSchemaUnifier;
+use crate::merger::file_manager::FileManager;
 
-mod arrow_schema_unifier;
 mod cli;
 mod error;
-mod file_manager;
+mod merger;
+mod querier;
 
 fn main() -> Result<(), Error>{
 

@@ -8,7 +8,7 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
-use crate::arrow_schema_unifier::ArrowSchemaUnifier;
+use crate::merger::arrow_schema_unifier::ArrowSchemaUnifier;
 
 #[derive(Clone)]
 pub struct FileManager {
