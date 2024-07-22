@@ -1,12 +1,9 @@
-use crate::merger::arrow_schema_unifier::ArrowSchemaUnifier;
 use arrow::array::{
     ArrayRef, BinaryArray, BooleanArray, Date32Array, Date64Array, Decimal128Array,
-    Decimal256Array, DictionaryArray, DurationNanosecondArray, FixedSizeBinaryArray,
-    FixedSizeListArray, Float16Array, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, IntervalYearMonthArray, LargeBinaryArray, LargeListArray,
-    LargeStringArray, ListArray, MapArray, NullArray, StringArray, StructArray, Time32SecondArray,
-    Time64NanosecondArray, TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array,
-    UInt8Array, UnionArray,
+    Decimal256Array, DurationNanosecondArray, FixedSizeBinaryArray, Float16Array, Float32Array,
+    Float64Array, Int16Array, Int32Array, Int64Array, Int8Array, IntervalYearMonthArray,
+    LargeBinaryArray, NullArray, StringArray, Time32SecondArray, Time64NanosecondArray,
+    TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -17,22 +14,28 @@ use parquet::file::properties::WriterProperties;
 use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
+use clap::builder::OsStr;
 
-#[derive(Clone)]
 pub struct FileManager {
-    unified_schema: ArrowSchemaUnifier,
+    file_paths: Vec<String>,
+    schema: SchemaRef,
+    output_file_path: String,
 }
 
 impl FileManager {
-    pub fn new(unified_schema: ArrowSchemaUnifier) -> Self {
-        Self { unified_schema }
+    pub fn new(file_paths: Vec<String>, schema: SchemaRef, output_file_path: String) -> Self {
+        Self {
+            file_paths,
+            schema,
+            output_file_path,
+        }
     }
 
-    pub fn read_to_arrow_batches(self, file_path: String) {
-        let combined_file = File::create_new(Path::new(&file_path)).unwrap();
-        let arrow_schema = self.unified_schema.get_merged_schema();
+    pub fn read_to_arrow_batches(&self) {
+        let combined_file = File::create_new(Path::new(&self.output_file_path)).unwrap();
+        let arrow_schema = &self.schema;
         let owned_arrow_schema = arrow_schema.to_owned();
-        let file_paths = self.unified_schema.get_file_paths();
+        let file_paths = &self.file_paths;
 
         for file_path in file_paths {
             let file = File::open(Path::new(&file_path)).expect("could not open file");
@@ -122,12 +125,10 @@ impl FileManager {
                             Arc::new(Float64Array::from(vec![None; record_batch.num_rows()]))
                                 as ArrayRef
                         }
-                        DataType::Timestamp(_, _) => {
-                            Arc::new(TimestampNanosecondArray::from(vec![
+                        DataType::Timestamp(_, _) => Arc::new(TimestampNanosecondArray::from(vec![
                                 None;
                                 record_batch.num_rows()
-                            ])) as ArrayRef
-                        } // Assuming nanoseconds precision
+                            ])) as ArrayRef, // Assuming nanoseconds precision
                         DataType::Date64 => {
                             Arc::new(Date64Array::from(vec![None; record_batch.num_rows()]))
                                 as ArrayRef
@@ -136,34 +137,26 @@ impl FileManager {
                             Arc::new(Time32SecondArray::from(vec![None; record_batch.num_rows()]))
                                 as ArrayRef
                         } // Assuming seconds
-                        DataType::Time64(_) => {
-                            Arc::new(Time64NanosecondArray::from(vec![
+                        DataType::Time64(_) => Arc::new(Time64NanosecondArray::from(vec![
                                 None;
                                 record_batch.num_rows()
-                            ])) as ArrayRef
-                        } // Assuming nanoseconds
-                        DataType::Duration(_) => {
-                            Arc::new(DurationNanosecondArray::from(vec![
+                            ])) as ArrayRef, // Assuming nanoseconds
+                        DataType::Duration(_) => Arc::new(DurationNanosecondArray::from(vec![
                                 None;
                                 record_batch.num_rows()
-                            ])) as ArrayRef
-                        } // Assuming nanoseconds
-                        DataType::Interval(_) => {
-                            Arc::new(IntervalYearMonthArray::from(vec![
+                            ])) as ArrayRef, // Assuming nanoseconds
+                        DataType::Interval(_) => Arc::new(IntervalYearMonthArray::from(vec![
                                 None;
                                 record_batch.num_rows()
-                            ])) as ArrayRef
-                        } // Assuming year-month interval
+                            ])) as ArrayRef, // Assuming year-month interval
                         DataType::Binary => {
                             Arc::new(BinaryArray::from(vec![None; record_batch.num_rows()]))
                                 as ArrayRef
                         }
-                        DataType::FixedSizeBinary(_) => {
-                            Arc::new(FixedSizeBinaryArray::from(vec![
+                        DataType::FixedSizeBinary(_) => Arc::new(FixedSizeBinaryArray::from(vec![
                                 None;
                                 record_batch.num_rows()
-                            ])) as ArrayRef
-                        }
+                            ])) as ArrayRef,
                         DataType::LargeBinary => {
                             Arc::new(LargeBinaryArray::from(vec![None; record_batch.num_rows()]))
                                 as ArrayRef
@@ -213,5 +206,25 @@ impl FileManager {
         writer.write(&record_batch).expect("Writing batch");
 
         writer.close().unwrap();
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum FileType {
+    Parquet,
+    Csv,
+    Json,
+    Orc,
+}
+
+pub fn get_file_type(path: &Path) -> FileType {
+    let ext = path.extension().and_then(OsStr::to_str);
+    match ext {
+        Some("parquet") => FileType::Parquet,
+        Some("csv") => FileType::Csv,
+        Some("json") => FileType::Json,
+        Some("orc") => FileType::Orc,
+        None => unimplemented!("file type not supported or there is no extension"),
+        _ => panic!("some how the program ended up here, this should not be possible :("),
     }
 }

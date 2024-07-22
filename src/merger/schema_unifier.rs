@@ -1,24 +1,24 @@
-use crate::modules::file_manager::{get_file_type, FileType};
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-use std::fs::File;
+use std::fs::File; 
 use std::ops::Deref;
 use std::path::Path;
+use crate::merger::file_manager::{FileType, get_file_type};
 
 #[derive(Debug, Clone)]
-pub struct SchemaUnifier {
-    file_paths: Vec<String>,
+pub struct SchemaUnifier<'a> {
+    file_paths: &'a Vec<String>,
 }
 
-impl SchemaUnifier {
-    pub fn new(file_paths: Vec<String>) -> Self {
+impl<'a> SchemaUnifier<'a> {
+    pub fn new(file_paths: &'a Vec<String>) -> Self {
         Self { file_paths }
     }
 
-    pub fn merge_schema_from_files(&self) -> SchemaRef {
+    pub fn merge_schema_from_files(&'a self) -> SchemaRef {
         let mut merged_arrow_fields: Vec<Field> = vec![];
 
-        for file_path in &self.file_paths {
+        for file_path in self.file_paths {
             let file_path = Path::new(file_path);
             let file = File::open(file_path).expect("could not open file for reading");
 
@@ -31,10 +31,6 @@ impl SchemaUnifier {
         }
 
         SchemaRef::new(Schema::new(merged_arrow_fields))
-    }
-
-    pub fn get_file_paths(self) -> Vec<String> {
-        self.file_paths
     }
 
     fn parquet_to_arrow_schema(arrow_fields: &mut Vec<Field>, file: File) {

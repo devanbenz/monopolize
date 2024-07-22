@@ -1,20 +1,20 @@
 use crate::cli::handle_input;
 use crate::error::Error;
-use crate::merger::arrow_schema_unifier::ArrowSchemaUnifier;
-use crate::merger::file_manager::FileManager;
+use merger::file_manager::FileManager;
+use crate::merger::schema_unifier::SchemaUnifier;
 
 mod cli;
 mod error;
-mod merger;
 mod querier;
-mod modules;
+mod merger;
 
 fn main() -> Result<(), Error>{
 
     let (files, output) = handle_input()?;
-    let arrow_unified_schema = ArrowSchemaUnifier::try_from_files(files);
-    let file_manager = FileManager::new(arrow_unified_schema);
-    file_manager.read_to_arrow_batches(output);
+    let arrow_unified_schema = SchemaUnifier::new(&files);
+    let schema = arrow_unified_schema.merge_schema_from_files();
+    let file_manager = FileManager::new(files, schema, output);
+    file_manager.read_to_arrow_batches();
 
     Ok(())
 }
