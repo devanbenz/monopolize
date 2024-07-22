@@ -7,6 +7,7 @@ mod cli;
 mod error;
 mod merger;
 mod querier;
+mod modules;
 
 fn main() -> Result<(), Error>{
 
