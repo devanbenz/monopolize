@@ -24,7 +24,7 @@ pub struct FileManager {
 }
 
 impl FileManager {
-    pub async fn new(file_paths: Vec<String>, schema: SchemaRef, output_file_path: String) -> Self {
+    pub fn new(file_paths: Vec<String>, schema: SchemaRef, output_file_path: String) -> Self {
         Self {
             file_paths,
             schema,
@@ -32,36 +32,55 @@ impl FileManager {
         }
     }
 
-    pub async fn merge_files(&self) {
+    pub fn merge_files(&self) {
         let combined_file = File::create_new(Path::new(&self.output_file_path)).unwrap();
-        let arrow_schema = &self.schema;
-        let owned_arrow_schema = arrow_schema.to_owned();
+        let arrow_schema = &self.schema.to_owned();
         let file_paths = &self.file_paths;
-    }
-
-    pub async fn write_record_batch_to_parquet(&self) {
-        let combined_file = File::create_new(Path::new(&self.output_file_path)).unwrap();
-        let arrow_schema = &self.schema;
-        let owned_arrow_schema = arrow_schema.to_owned();
-        let file_paths = &self.file_paths;
+        let props = WriterProperties::builder()
+            .set_compression(Compression::SNAPPY)
+            .build();
+        let mut writer =
+            ArrowWriter::try_new(combined_file, arrow_schema.to_owned(), Some(props)).unwrap();
 
         for file_path in file_paths {
-            let file = File::open(Path::new(&file_path)).expect("could not open file");
-            let builder = ParquetRecordBatchReaderBuilder::try_new(file)
-                .expect("could not read record batches from parquet file");
-
-            let reader = builder
-                .build()
-                .expect("could not build reader from parquet builder");
-            for record_batch in reader {
-                let merged_record_batch =
-                    Self::convert_batch_to_schema(&owned_arrow_schema, record_batch.unwrap());
-                Self::write_to_combined_schema_arrow_batch(
-                    &combined_file,
-                    &owned_arrow_schema,
-                    merged_record_batch,
-                );
+            match get_file_type(Path::new(file_path)) {
+                FileType::Parquet => {
+                    println!("writing: {:#?}", file_path);
+                    Self::write_record_batch_to_parquet(
+                        &self,
+                        file_path,
+                        arrow_schema,
+                        &mut writer,
+                    );
+                }
+                FileType::Csv => {}
+                FileType::Json => {}
+                FileType::Orc => {}
             }
+        }
+
+        writer.close().unwrap();
+    }
+
+    fn write_record_batch_to_parquet(
+        &self,
+        file_path: &String,
+        arrow_schema: &SchemaRef,
+        writer: &mut ArrowWriter<File>,
+    ) {
+        let file = File::open(Path::new(&file_path)).expect("could not open file");
+
+        let builder = ParquetRecordBatchReaderBuilder::try_new(file)
+            .expect("could not read record batches from parquet file");
+
+        let reader = builder
+            .build()
+            .expect("could not build reader from parquet builder");
+
+        for record_batch in reader {
+            let merged_record_batch =
+                Self::convert_batch_to_schema(arrow_schema, record_batch.unwrap());
+            Self::write_to_combined_schema_arrow_batch(merged_record_batch, writer);
         }
     }
 
@@ -84,18 +103,14 @@ impl FileManager {
     }
 
     fn write_to_combined_schema_arrow_batch(
-        file: &File,
-        schema: &SchemaRef,
         record_batch: RecordBatch,
+        writer: &mut ArrowWriter<File>,
     ) {
         let props = WriterProperties::builder()
             .set_compression(Compression::SNAPPY)
             .build();
 
-        let mut writer = ArrowWriter::try_new(file, schema.to_owned(), Some(props)).unwrap();
         writer.write(&record_batch).expect("Writing batch");
-
-        writer.close().unwrap();
     }
 
     fn create_default_array(data_type: &DataType, num_rows: usize) -> ArrayRef {

@@ -1,8 +1,10 @@
-use arrow::datatypes::{Field, Schema, SchemaRef};
-use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-use std::fs::File; 
+use std::fs::File;
 use std::ops::Deref;
 use std::path::Path;
+
+use arrow::datatypes::{Field, Schema, SchemaRef};
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+
 use crate::merger::file_manager::{FileType, get_file_type};
 
 #[derive(Debug, Clone)]
@@ -38,7 +40,7 @@ impl<'a> SchemaUnifier<'a> {
         let fields = arrow_schema.schema();
 
         for field in fields.fields() {
-            let cloned_field = field.clone().deref().to_owned();
+            let cloned_field = field.clone().deref().to_owned().with_nullable(true);
             arrow_fields.push(cloned_field);
         }
     }

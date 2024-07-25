@@ -1,20 +1,21 @@
-use crate::cli::handle_input;
 use crate::error::Error;
-use merger::file_manager::FileManager;
-use crate::merger::schema_unifier::SchemaUnifier;
+use crate::querier::query_engine::query_parquet_file;
 
+mod api;
 mod cli;
 mod error;
-mod querier;
 mod merger;
+mod querier;
 
-fn main() -> Result<(), Error>{
-
-    let (files, output) = handle_input()?;
-    let arrow_unified_schema = SchemaUnifier::new(&files);
-    let schema = arrow_unified_schema.merge_schema_from_files();
-    let file_manager = FileManager::new(files, schema, output);
-    file_manager.read_to_arrow_batches();
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    query_parquet_file(
+        "SELECT * FROM parquet_file WHERE \"Sunshine\" IS NOT NULL LIMIT 10",
+        "parquet_file",
+        "/Users/devan/Documents/Projects/monopolize/out.parquet",
+    )
+    .await
+    .expect("could not query file");
 
     Ok(())
 }
